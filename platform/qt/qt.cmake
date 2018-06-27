@@ -38,6 +38,9 @@ set(MBGL_QT_CORE_FILES
     PRIVATE platform/qt/src/timer.cpp
     PRIVATE platform/qt/src/timer_impl.hpp
     PRIVATE platform/qt/src/utf.cpp
+
+    PRIVATE platform/default/unaccent.cpp
+    PRIVATE platform/default/unaccent.hpp
 )
 
 set(MBGL_QT_FILESOURCE_FILES

@@ -2,6 +2,7 @@ mason_use(optional VERSION f27e7908 HEADER_ONLY)
 mason_use(tao_tuple VERSION 28626e99 HEADER_ONLY)
 
 include(platform/qt/qt.cmake)
+include(cmake/nunicode.cmake)
 
 if(NOT WITH_QT_DECODERS)
     mason_use(libjpeg-turbo VERSION 1.5.0)
@@ -49,6 +50,9 @@ macro(mbgl_platform_core)
         target_sources(mbgl-core PRIVATE platform/qt/src/bidi.cpp)
     endif()
 
+    mbgl_nunicode_core()
+
+    target_sources(mbgl-core PRIVATE platform/default/collator.cpp)
     target_sources(mbgl-core PRIVATE platform/default/local_glyph_rasterizer.cpp)
 
     if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")

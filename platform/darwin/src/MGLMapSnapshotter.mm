@@ -123,7 +123,13 @@ const CGFloat MGLSnapshotterMinimumPixelSize = 64;
     __weak __typeof__(self) weakSelf = self;
     // mbgl::Scheduler::GetCurrent() scheduler means "run callback on current (ie UI/main) thread"
     // capture weakSelf to avoid retain cycle if callback is never called (ie snapshot cancelled)
-    _snapshotCallback = std::make_unique<mbgl::Actor<mbgl::MapSnapshotter::Callback>>(*mbgl::Scheduler::GetCurrent(), [=](std::exception_ptr mbglError, mbgl::PremultipliedImage image, mbgl::MapSnapshotter::Attributions attributions, mbgl::MapSnapshotter::PointForFn pointForFn) {
+
+    _snapshotCallback = std::make_unique<mbgl::Actor<mbgl::MapSnapshotter::Callback>>(*mbgl::Scheduler::GetCurrent(),
+                                                                                      [=](std::exception_ptr mbglError,
+                                                                                          mbgl::PremultipliedImage image,
+                                                                                          mbgl::MapSnapshotter::Attributions attributions,
+                                                                                          mbgl::MapSnapshotter::PointForFn pointForFn,
+                                                                                          mbgl::MapSnapshotter::LatLngForFn latLngForFn) {
         __typeof__(self) strongSelf = weakSelf;
         // If self had died, _snapshotCallback would have been destroyed and this block would not be executed
         NSCAssert(strongSelf, @"Snapshot callback executed after being destroyed.");

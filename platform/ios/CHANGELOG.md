@@ -2,6 +2,13 @@
 
 Mapbox welcomes participation and contributions from everyone. Please read [CONTRIBUTING.md](../../CONTRIBUTING.md) to get started.
 
+## Future
+
+### Other changes 
+
+* Added `-[MGLSnapshot coordinateForPoint:]` that returns a map coordinate for a specified snapshot image point. ([#12221](https://github.com/mapbox/mapbox-gl-native/pull/12221))
+
+
 ## 4.1.0 - June 20, 2018
 
 ### Packaging

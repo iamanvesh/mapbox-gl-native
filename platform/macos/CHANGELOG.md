@@ -1,10 +1,10 @@
 # Changelog for Mapbox Maps SDK for macOS
 
-## Future
+## master
 
 ### Other changes
 
-* Added `-[MGLSnapshot coordinateForPoint:]` that returns a map coordinate for a specified snapshot image point. ([#12221](https://github.com/mapbox/mapbox-gl-native/pull/12221))
+* Added `-[MGLMapSnapshot coordinateForPoint:]` that returns a map coordinate for a specified snapshot image point. ([#12221](https://github.com/mapbox/mapbox-gl-native/pull/12221))
 
 ## 0.8.0 - June 20, 2018
 

@@ -94,12 +94,13 @@ const CGFloat MGLSnapshotterMinimumPixelSize = 64;
 - (NSPoint)pointForCoordinate:(CLLocationCoordinate2D)coordinate
 {
     mbgl::ScreenCoordinate sc = _pointForFn(MGLLatLngFromLocationCoordinate2D(coordinate));
-    return NSMakePoint(sc.x, sc.y);
+    return NSMakePoint(sc.x, self.image.size.height - sc.y);
 }
 
 - (CLLocationCoordinate2D)coordinateForPoint:(NSPoint)point
 {
-    mbgl::LatLng latLng = _latLngForFn(mbgl::ScreenCoordinate(point.x, point.y));
+    auto screenCoord = mbgl::ScreenCoordinate(point.x, self.image.size.height - point.y);
+    mbgl::LatLng latLng = _latLngForFn(screenCoord);
     return MGLLocationCoordinate2DFromLatLng(latLng);
 }
 
@@ -151,12 +152,10 @@ const CGFloat MGLSnapshotterMinimumPixelSize = 64;
     // mbgl::Scheduler::GetCurrent() scheduler means "run callback on current (ie UI/main) thread"
     // capture weakSelf to avoid retain cycle if callback is never called (ie snapshot cancelled)
 
-    _snapshotCallback = std::make_unique<mbgl::Actor<mbgl::MapSnapshotter::Callback>>(*mbgl::Scheduler::GetCurrent(),
-                                                                                      [=](std::exception_ptr mbglError,
-                                                                                          mbgl::PremultipliedImage image,
-                                                                                          mbgl::MapSnapshotter::Attributions attributions,
-                                                                                          mbgl::MapSnapshotter::PointForFn pointForFn,
-                                                                                          mbgl::MapSnapshotter::LatLngForFn latLngForFn) {
+    _snapshotCallback = std::make_unique<mbgl::Actor<mbgl::MapSnapshotter::Callback>>(
+							*mbgl::Scheduler::GetCurrent(),
+							[=](std::exception_ptr mbglError, mbgl::PremultipliedImage image, mbgl::MapSnapshotter::Attributions attributions, mbgl::MapSnapshotter::PointForFn pointForFn, mbgl::MapSnapshotter::LatLngForFn latLngForFn) {
+
         __typeof__(self) strongSelf = weakSelf;
         // If self had died, _snapshotCallback would have been destroyed and this block would not be executed
         NSCAssert(strongSelf, @"Snapshot callback executed after being destroyed.");

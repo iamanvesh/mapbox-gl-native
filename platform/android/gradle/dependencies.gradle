@@ -28,7 +28,6 @@ ext {
             mapboxAndroidTelemetry: "com.mapbox.mapboxsdk:mapbox-android-telemetry:${versions.mapboxTelemetry}",
             mapboxAndroidGestures : "com.mapbox.mapboxsdk:mapbox-android-gestures:${versions.mapboxGestures}",
 
-            // for testApp
             mapboxJavaTurf        : "com.mapbox.mapboxsdk:mapbox-sdk-turf:${versions.mapboxServices}",
 
             junit                 : "junit:junit:${versions.junit}",

@@ -3,9 +3,15 @@ package com.mapbox.mapboxsdk.maps;
 import android.graphics.PointF;
 import android.support.annotation.FloatRange;
 import android.support.annotation.NonNull;
+import android.util.Log;
 
+import com.mapbox.geojson.Point;
+import com.mapbox.mapboxsdk.annotations.Marker;
+import com.mapbox.mapboxsdk.annotations.MarkerOptions;
+import com.mapbox.mapboxsdk.constants.GeometryConstants;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
+import com.mapbox.mapboxsdk.geometry.LatLngSpan;
 import com.mapbox.mapboxsdk.geometry.ProjectedMeters;
 import com.mapbox.mapboxsdk.geometry.VisibleRegion;
 
@@ -97,54 +103,77 @@ public class Projection {
     float top = 0;
     float bottom = nativeMapView.getHeight();
 
+
+    LatLng center = fromScreenLocation(new PointF(right / 2, bottom / 2));
+    Point centerPoint = Point.fromLngLat(center.getLongitude(), center.getLatitude());
+
+    List<LatLng> latLngs = new ArrayList<>();
+
     LatLng topLeft = fromScreenLocation(new PointF(left, top));
     LatLng topRight = fromScreenLocation(new PointF(right, top));
     LatLng bottomRight = fromScreenLocation(new PointF(right, bottom));
     LatLng bottomLeft = fromScreenLocation(new PointF(left, bottom));
 
-    // Map can be rotated, find correct LatLngBounds that encompasses the visible region (that might be rotated)
-    List<LatLng> boundsPoints = new ArrayList<>();
-    boundsPoints.add(topLeft);
-    boundsPoints.add(topRight);
-    boundsPoints.add(bottomRight);
-    boundsPoints.add(bottomLeft);
+    latLngs.add(topRight);
+    latLngs.add(bottomRight);
+    latLngs.add(bottomLeft);
+    latLngs.add(topLeft);
 
-    // order so that two most northern point are put first
-    while ((boundsPoints.get(0).getLatitude() < boundsPoints.get(3).getLatitude())
-      || (boundsPoints.get(1).getLatitude() < boundsPoints.get(2).getLatitude())) {
-      LatLng first = boundsPoints.remove(0);
-      boundsPoints.add(first);
+    double maxEastLonSpan = 0;
+    double maxWestLonSpan = 0;
+
+    double east = 0;
+    double west = 0;
+    double north = GeometryConstants.MIN_LATITUDE;
+    double south = GeometryConstants.MAX_LATITUDE;
+
+    int i = 0;
+    for (LatLng latLng : latLngs) {
+      Point latLngPoint = Point.fromLngLat(latLng.getLongitude(), latLng.getLatitude());
+      double bearing = TurfMeasurement.bearing(centerPoint, latLngPoint);
+
+      if (bearing >= 0) {
+        double span = getLongitudeSpan(latLng.getLongitude(), center.getLongitude());
+        if (span > maxEastLonSpan) {
+          maxEastLonSpan = span;
+          east = latLng.getLongitude();
+        }
+      } else {
+        double span = getLongitudeSpan(center.getLongitude(), latLng.getLongitude());
+        if (span > maxWestLonSpan) {
+          maxWestLonSpan = span;
+          west = latLng.getLongitude();
+        }
+      }
+
+      if (north < latLng.getLatitude()) {
+        north = latLng.getLatitude();
+      }
+      if (south > latLng.getLatitude()) {
+        south = latLng.getLatitude();
+      }
     }
 
-    double north = boundsPoints.get(0).getLatitude();
-    if (north < boundsPoints.get(1).getLatitude()) {
-      north = boundsPoints.get(1).getLatitude();
+    return new VisibleRegion(topLeft, topRight, bottomLeft, bottomRight,
+      LatLngBounds.from(north, east, south, west));
+
+  }
+
+
+  /**
+   * Get the absolute distance, in degrees, between the west and
+   * east boundaries of this LatLngBounds
+   *
+   * @return Span distance
+   */
+  static double getLongitudeSpan(double east, double west) {
+    double longSpan = Math.abs(east - west);
+    if (east > west) {
+      return longSpan;
     }
 
-    double south = boundsPoints.get(2).getLatitude();
-    if (south > boundsPoints.get(3).getLatitude()) {
-      south = boundsPoints.get(3).getLatitude();
-    }
-
-    double firstLon = boundsPoints.get(0).getLongitude();
-    double secondLon = boundsPoints.get(1).getLongitude();
-    double thridLon = boundsPoints.get(2).getLongitude();
-    double fourthLon = boundsPoints.get(3).getLongitude();
-
-    // if it does not go over the date line
-    if (secondLon > fourthLon && firstLon < thridLon)  {
-      return new VisibleRegion(topLeft, topRight, bottomLeft, bottomRight,
-        LatLngBounds.from(north,
-          secondLon > thridLon ? secondLon : thridLon,
-          south,
-          firstLon < fourthLon ? firstLon : fourthLon));
-    } else {
-      return new VisibleRegion(topLeft, topRight, bottomLeft, bottomRight,
-        LatLngBounds.from(north,
-          secondLon < thridLon ? secondLon : thridLon,
-          south,
-          firstLon > fourthLon ? firstLon : fourthLon));
-    }
+    // shortest span contains antimeridian
+    return GeometryConstants.LONGITUDE_SPAN - longSpan;
   }
 
   /**

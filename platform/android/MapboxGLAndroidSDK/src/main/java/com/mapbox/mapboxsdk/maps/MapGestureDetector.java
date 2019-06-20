@@ -22,6 +22,7 @@ import com.mapbox.android.gestures.StandardScaleGestureDetector;
 import com.mapbox.android.telemetry.Event;
 import com.mapbox.android.telemetry.MapEventFactory;
 import com.mapbox.android.telemetry.MapState;
+import com.mapbox.android.telemetry.MapboxTelemetry;
 import com.mapbox.mapboxsdk.R;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.constants.MapboxConstants;
@@ -433,6 +434,10 @@ final class MapGestureDetector {
   private final class MoveGestureListener extends MoveGestureDetector.SimpleOnMoveGestureListener {
     @Override
     public boolean onMoveBegin(MoveGestureDetector detector) {
+      if (annotationManager.onMoveBegin(detector.getFocalPoint())) {
+        return true;
+      }
+
       if (!uiSettings.isScrollGesturesEnabled()) {
         return false;
       }
@@ -447,6 +452,13 @@ final class MapGestureDetector {
     public boolean onMove(MoveGestureDetector detector, float distanceX, float distanceY) {
       // first move event is often delivered with no displacement
       if (distanceX != 0 || distanceY != 0) {
+        if (detector.getPointersCount() > 1) {
+          // if any marker is being dragged, finish that event
+          annotationManager.finishMarkerDrag();
+        } else if (annotationManager.onMove(detector.getMoveObject(0), distanceX, distanceY)) {
+          return true;
+        }
+
         // dispatching camera start event only when the movement actually occurred
         cameraChangeDispatcher.onCameraMoveStarted(CameraChangeDispatcher.REASON_API_GESTURE);
 
@@ -461,6 +473,10 @@ final class MapGestureDetector {
 
     @Override
     public void onMoveEnd(MoveGestureDetector detector, float velocityX, float velocityY) {
+      if (annotationManager.onMoveEnd()) {
+        return;
+      }
+
       cameraChangeDispatcher.onCameraIdle();
       notifyOnMoveEndListeners(detector);
     }
@@ -886,11 +902,12 @@ final class MapGestureDetector {
     if (cameraPosition != null) {
       double zoom = cameraPosition.zoom;
       if (isZoomValid(zoom)) {
+        MapboxTelemetry telemetry = Telemetry.obtainTelemetry();
         MapEventFactory mapEventFactory = new MapEventFactory();
         LatLng latLng = projection.fromScreenLocation(focalPoint);
         MapState state = new MapState(latLng.getLatitude(), latLng.getLongitude(), zoom);
         state.setGesture(eventType);
-        Telemetry.obtainTelemetry().push(mapEventFactory.createMapGestureEvent(Event.Type.MAP_CLICK, state));
+        telemetry.push(mapEventFactory.createMapGestureEvent(Event.Type.MAP_CLICK, state));
       }
     }
   }

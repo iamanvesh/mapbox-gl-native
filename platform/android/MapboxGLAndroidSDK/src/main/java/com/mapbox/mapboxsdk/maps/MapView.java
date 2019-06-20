@@ -146,8 +146,8 @@ public class MapView extends FrameLayout implements NativeMapView.ViewCallback {
     nativeMapView.addOnMapChangedListener(mapCallback);
 
     // callback for focal point invalidation
-    final FocalPointInvalidator focalPointInvalidator = new FocalPointInvalidator();
-    focalPointInvalidator.addListener(createFocalPointChangeListener());
+    final FocalPointInvalidator focalInvalidator = new FocalPointInvalidator();
+    focalInvalidator.addListener(createFocalPointChangeListener());
 
     // callback for registering touch listeners
     GesturesManagerInteractionListener registerTouchListener = new GesturesManagerInteractionListener();
@@ -157,7 +157,7 @@ public class MapView extends FrameLayout implements NativeMapView.ViewCallback {
 
     // setup components for MapboxMap creation
     Projection proj = new Projection(nativeMapView);
-    UiSettings uiSettings = new UiSettings(proj, focalPointInvalidator, compassView, attrView, logoView);
+    UiSettings uiSettings = new UiSettings(proj, focalInvalidator, compassView, attrView, logoView, getPixelRatio());
     LongSparseArray<Annotation> annotationsArray = new LongSparseArray<>();
     MarkerViewManager markerViewManager = new MarkerViewManager((ViewGroup) findViewById(R.id.markerViewContainer));
     IconManager iconManager = new IconManager(nativeMapView);
@@ -310,15 +310,12 @@ public class MapView extends FrameLayout implements NativeMapView.ViewCallback {
       addView(glSurfaceView, 0);
     }
 
-    nativeMapView = new NativeMapView(getContext(), this, mapRenderer);
-    nativeMapView.addOnMapChangedListener(new OnMapChangedListener() {
-      @Override
-      public void onMapChanged(int change) {
-        // dispatch events to external listeners
-        if (!onMapChangedListeners.isEmpty()) {
-          for (OnMapChangedListener onMapChangedListener : onMapChangedListeners) {
-            onMapChangedListener.onMapChanged(change);
-          }
+    nativeMapView = new NativeMapView(getContext(), getPixelRatio(), this, mapRenderer);
+    nativeMapView.addOnMapChangedListener(change -> {
+      // dispatch events to external listeners
+      if (!onMapChangedListeners.isEmpty()) {
+        for (OnMapChangedListener onMapChangedListener : onMapChangedListeners) {
+          onMapChangedListener.onMapChanged(change);
         }
       }
     });
@@ -428,9 +425,22 @@ public class MapView extends FrameLayout implements NativeMapView.ViewCallback {
     }
   }
 
+  /**
+   * Returns if the map has been destroyed.
+   * <p>
+   * This method can be used to determine if the result of an asynchronous operation should be set.
+   * </p>
+   *
+   * @return true, if the map has been destroyed
+   */
+  @UiThread
+  public boolean isDestroyed() {
+    return destroyed;
+  }
+
   @Override
   public boolean onTouchEvent(MotionEvent event) {
-    if (!isMapInitialized() || !isZoomButtonControllerInitialized()) {
+    if (!isMapInitialized() || !isZoomButtonControllerInitialized() || !isGestureDetectorInitialized()) {
       return super.onTouchEvent(event);
     }
 
@@ -462,7 +472,7 @@ public class MapView extends FrameLayout implements NativeMapView.ViewCallback {
 
   @Override
   public boolean onGenericMotionEvent(MotionEvent event) {
-    if (mapGestureDetector == null) {
+    if (!isGestureDetectorInitialized()) {
       return super.onGenericMotionEvent(event);
     }
     return mapGestureDetector.onGenericMotionEvent(event) || super.onGenericMotionEvent(event);
@@ -583,6 +593,16 @@ public class MapView extends FrameLayout implements NativeMapView.ViewCallback {
     }
   }
 
+  private float getPixelRatio() {
+    // check is user defined his own pixel ratio value
+    float pixelRatio = mapboxMapOptions.getPixelRatio();
+    if (pixelRatio == 0) {
+      // if not, get the one defined by the system
+      pixelRatio = getResources().getDisplayMetrics().density;
+    }
+    return pixelRatio;
+  }
+
   //
   // View events
   //
@@ -667,6 +687,10 @@ public class MapView extends FrameLayout implements NativeMapView.ViewCallback {
 
   private boolean isZoomButtonControllerInitialized() {
     return mapZoomButtonController != null;
+  }
+
+  private boolean isGestureDetectorInitialized() {
+    return mapGestureDetector != null;
   }
 
   MapboxMap getMapboxMap() {

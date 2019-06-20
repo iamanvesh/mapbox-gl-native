@@ -1,14 +1,4 @@
-mason_use(glfw VERSION 2018-06-27-0be4f3f)
-mason_use(sqlite VERSION 3.14.2)
-mason_use(libuv VERSION 1.9.1)
-mason_use(nunicode VERSION 1.7.1)
-mason_use(libpng VERSION 1.6.25)
-mason_use(libjpeg-turbo VERSION 1.5.0)
-mason_use(webp VERSION 0.5.1)
-mason_use(gtest VERSION 1.8.0${MASON_CXXABI_SUFFIX})
-mason_use(benchmark VERSION 1.2.0)
-mason_use(icu VERSION 58.1-min-size)
-mason_use(args VERSION 6.2.0 HEADER_ONLY)
+include(cmake/nunicode.cmake)
 
 add_library(mbgl-loop-uv STATIC
     platform/default/async_task.cpp
@@ -39,7 +29,6 @@ macro(mbgl_platform_core)
         target_sources(mbgl-core
             PRIVATE platform/linux/src/headless_backend_egl.cpp
         )
-        mason_use(swiftshader VERSION 2017-11-20)
         target_add_mason_package(mbgl-core PUBLIC swiftshader)
     else()
         target_sources(mbgl-core
@@ -57,8 +46,11 @@ macro(mbgl_platform_core)
         PRIVATE platform/default/string_stdlib.cpp
         PRIVATE platform/default/thread.cpp
         PRIVATE platform/default/bidi.cpp
+        PRIVATE platform/default/collator.cpp
         PRIVATE platform/default/local_glyph_rasterizer.cpp
         PRIVATE platform/default/thread_local.cpp
+        PRIVATE platform/default/unaccent.cpp
+        PRIVATE platform/default/unaccent.hpp
         PRIVATE platform/default/utf.cpp
 
         # Image handling
@@ -85,13 +77,13 @@ macro(mbgl_platform_core)
         PRIVATE platform/linux
     )
 
-    target_add_mason_package(mbgl-core PUBLIC nunicode)
     target_add_mason_package(mbgl-core PUBLIC libpng)
     target_add_mason_package(mbgl-core PUBLIC libjpeg-turbo)
     target_add_mason_package(mbgl-core PUBLIC webp)
     target_add_mason_package(mbgl-core PRIVATE icu)
 
     target_link_libraries(mbgl-core
+        PRIVATE nunicode
         PUBLIC -lz
     )
 

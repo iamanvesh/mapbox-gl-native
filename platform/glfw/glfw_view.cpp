@@ -7,8 +7,7 @@
 #include <mbgl/style/image.hpp>
 #include <mbgl/style/transition_options.hpp>
 #include <mbgl/style/layers/fill_extrusion_layer.hpp>
-#include <mbgl/style/expression/compound_expression.hpp>
-#include <mbgl/style/expression/literal.hpp>
+#include <mbgl/style/expression/dsl.hpp>
 #include <mbgl/util/logging.hpp>
 #include <mbgl/util/platform.hpp>
 #include <mbgl/util/string.hpp>
@@ -498,12 +497,10 @@ void GLFWView::onMouseClick(GLFWwindow *window, int button, int action, int modi
 void GLFWView::onMouseMove(GLFWwindow *window, double x, double y) {
     auto *view = reinterpret_cast<GLFWView *>(glfwGetWindowUserPointer(window));
     if (view->tracking) {
-        double dx = x - view->lastX;
-        double dy = y - view->lastY;
+        const double dx = x - view->lastX;
+        const double dy = y - view->lastY;
         if (dx || dy) {
-            view->map->setLatLng(
-                    view->map->latLngForPixel(mbgl::ScreenCoordinate(x - dx, y - dy)),
-                    mbgl::ScreenCoordinate(x, y));
+            view->map->moveBy(mbgl::ScreenCoordinate { dx, dy });
         }
     } else if (view->rotating) {
         view->map->rotateBy({ view->lastX, view->lastY }, { x, y });
@@ -622,8 +619,8 @@ void GLFWView::onDidFinishLoadingStyle() {
 
 void GLFWView::toggle3DExtrusions(bool visible) {
     using namespace mbgl::style;
-    using namespace mbgl::style::expression;
-    
+    using namespace mbgl::style::expression::dsl;
+
     show3DExtrusions = visible;
 
     // Satellite-only style does not contain building extrusions data.
@@ -632,34 +629,22 @@ void GLFWView::toggle3DExtrusions(bool visible) {
     }
 
     if (auto layer = map->getStyle().getLayer("3d-buildings")) {
-        layer->setVisibility(mbgl::style::VisibilityType(!show3DExtrusions));
+        layer->setVisibility(VisibilityType(!show3DExtrusions));
         return;
     }
 
-    auto extrusionLayer = std::make_unique<mbgl::style::FillExtrusionLayer>("3d-buildings", "composite");
+    auto extrusionLayer = std::make_unique<FillExtrusionLayer>("3d-buildings", "composite");
     extrusionLayer->setSourceLayer("building");
     extrusionLayer->setMinZoom(15.0f);
-    
-    ParsingContext parsingContext;
-    extrusionLayer->setFilter(Filter(createCompoundExpression("filter-==", createLiteral("extrude"), createLiteral("true"), parsingContext)));
-
-    auto colorFn = mbgl::style::SourceFunction<mbgl::Color> { "height",
-        mbgl::style::ExponentialStops<mbgl::Color> {
-            std::map<float, mbgl::Color> {
-                {   0.f, *mbgl::Color::parse("#160e23") },
-                {  50.f, *mbgl::Color::parse("#00615f") },
-                { 100.f, *mbgl::Color::parse("#55e9ff") }
-            }
-        }
-    };
-    extrusionLayer->setFillExtrusionColor({ colorFn });
-    extrusionLayer->setFillExtrusionOpacity({ 0.6f });
-
-    auto heightSourceFn = mbgl::style::SourceFunction<float> { "height", mbgl::style::IdentityStops<float>() };
-    extrusionLayer->setFillExtrusionHeight({ heightSourceFn });
-
-    auto baseSourceFn = mbgl::style::SourceFunction<float> { "min_height", mbgl::style::IdentityStops<float>() };
-    extrusionLayer->setFillExtrusionBase({ baseSourceFn });
+    extrusionLayer->setFilter(Filter(eq(get("extrude"), literal("true"))));
+    extrusionLayer->setFillExtrusionColor(SourceFunction<mbgl::Color>(
+        interpolate(linear(), number(get("height")),
+                    0.f, toColor("#160e23"),
+                    50.f, toColor("#00615f"),
+                    100.f, toColor("#55e9ff"))));
+    extrusionLayer->setFillExtrusionOpacity(0.6f);
+    extrusionLayer->setFillExtrusionHeight(SourceFunction<float>(get("height")));
+    extrusionLayer->setFillExtrusionBase(SourceFunction<float>(get("min_height")));
 
     map->getStyle().addLayer(std::move(extrusionLayer));
 }
